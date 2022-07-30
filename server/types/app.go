@@ -15,6 +15,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/server/api"
 	"github.com/cosmos/cosmos-sdk/server/config"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 // ServerStartTime defines the time duration that the server need to stay running after startup
@@ -76,4 +77,11 @@ type (
 	// AppExporter is a function that dumps all app state to
 	// JSON-serializable structure and returns the current validator set.
 	AppExporter func(log.Logger, dbm.DB, io.Writer, int64, bool, []string, AppOptions) (ExportedApp, error)
+
+	// RootMultiStoreProvider defines an application interface that provides root multi store for pruning.
+	RootMultiStoreProvider interface {
+		CommitMultiStore() sdk.CommitMultiStore
+	}
+
+	StoreProviderCreator func(log.Logger, dbm.DB, AppOptions) RootMultiStoreProvider
 )

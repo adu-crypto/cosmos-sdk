@@ -548,7 +548,53 @@ func (rs *Store) GetKVStore(key types.StoreKey) types.KVStore {
 	return store
 }
 
-// GetStoreByName performs a lookup of a StoreKey given a store name typically
+// PruneHistoryVersions prunes the history versions of each substore based on
+// the pruning options
+func (rs *Store) PruneHistoryVersions() error {
+	pruningOptions := rs.GetPruning()
+	latestVersion := getLatestVersion(rs.db)
+	pruningVersions := []int64{}
+
+	if pruningOptions.Interval == 0 {
+		rs.logger.Info("pruning returns with no op because pruning interval is set to 0\n")
+		return nil
+	}
+
+	for i := int64(0); i < latestVersion; i++ {
+		if (i%int64(pruningOptions.Interval) != 0) && (i+int64(pruningOptions.KeepRecent) < latestVersion) {
+			pruningVersions = append(pruningVersions, i)
+		}
+	}
+
+	if len(pruningVersions) == 0 {
+		rs.logger.Info("pruning returns with no op because no matched versions to prune\n")
+		return nil
+	}
+
+	for key, store := range rs.stores {
+		// If the store is wrapped with an inter-block cache, we must first unwrap
+		// it to get the underlying IAVL store.
+		if store.GetStoreType() != types.StoreTypeIAVL {
+			rs.logger.Info("can not prune a non-IAVL store for store with key: %v\n", key)
+			continue
+		}
+
+		store = rs.GetCommitKVStore(key)
+
+		err := store.(*iavl.Store).DeleteVersions(pruningVersions...)
+		if err == nil {
+			continue
+		}
+
+		if errCause := errors.Cause(err); errCause != nil && errCause != iavltree.ErrVersionDoesNotExist {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// getStoreByName performs a lookup of a StoreKey given a store name typically
 // provided in a path. The StoreKey is then used to perform a lookup and return
 // a Store. If the Store is wrapped in an inter-block cache, it will be unwrapped
 // prior to being returned. If the StoreKey does not exist, nil is returned.
