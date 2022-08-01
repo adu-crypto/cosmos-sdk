@@ -46,6 +46,8 @@ func GetPruningOptionsFromFlags(appOpts types.AppOptions) (storetypes.PruningOpt
 	}
 }
 
+// PruningCmd prunes the sdk root multi store history versions based on the pruning options
+// specified by command flags.
 func PruningCmd(providerCreator types.StoreProviderCreator) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "prune",
@@ -82,8 +84,18 @@ func PruningCmd(providerCreator types.StoreProviderCreator) *cobra.Command {
 				return err
 			}
 
+			// we should set pruning options in providerCreator
 			provider := providerCreator(ctx.Logger, db, ctx.Viper)
 			cms := provider.CommitMultiStore()
+			cmsOptions := cms.GetPruning()
+			// set pruning options for cms in case we forgot to apply the pruning options in providerCreator
+			if cmsOptions.Interval == 0 && cmsOptions.KeepRecent == 0 {
+				pruningOptions, err := GetPruningOptionsFromFlags(ctx.Viper)
+				if err != nil {
+					return err
+				}
+				cms.SetPruning(pruningOptions)
+			}
 
 			if rootMultiStore, ok := cms.(*rootmulti.Store); ok {
 				err = rootMultiStore.PruneHistoryVersions()

@@ -549,7 +549,7 @@ func (rs *Store) GetKVStore(key types.StoreKey) types.KVStore {
 }
 
 // PruneHistoryVersions prunes the history versions of each substore based on
-// the pruning options
+// the pruning options.
 func (rs *Store) PruneHistoryVersions() error {
 	pruningOptions := rs.GetPruning()
 	latestVersion := getLatestVersion(rs.db)
